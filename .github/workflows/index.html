@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mechazilla Booster Catch Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0b0f19;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #gameCanvas {
+            border: 3px solid #333;
+            background: linear-gradient(to bottom, #020208 0%, #1a1a3a 70%, #3a3a6a 100%);
+            max-width: 95vw;
+            max-height: 60vh;
+        }
+        .painel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+        #botaoMotor {
+            width: 85%;
+            max-width: 300px;
+            height: 80px;
+            margin-top: 15px;
+            background-color: #ff5500;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 6px #b33c00;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        #botaoMotor:active {
+            background-color: #e64d00;
+            box-shadow: 0 2px #b33c00;
+            transform: translateY(4px);
+        }
+        .alerta { color: #ff3333; animation: piscar 0.5s infinite; }
+        @keyframes piscar { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="painel">
+        <div>Alt: <span id="alt">1000</span>m</div>
+        <div>Vel: <span id="vel">0</span>m/s</div>
+        <div>Comb: <span id="comb">100</span>%</div>
+    </div>
+    
+    <div id="statusTxt" style="font-size: 18px; font-weight: bold; margin-bottom: 5px; min-height: 25px; text-align: center; padding: 0 10px;"></div>
+
+    <canvas id="gameCanvas" width="360" height="450"></canvas>
+
+    <button id="botaoMotor">SEGURE PARA FREAR</button>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const altTxt = document.getElementById("alt");
+        const velTxt = document.getElementById("vel");
+        const combTxt = document.getElementById("comb");
+        const statusTxt = document.getElementById("statusTxt");
+        const botao = document.getElementById("botaoMotor");
+
+        let y = 30, velocidade = 4, gravidade = 0.15, empuxo = 0.4, combustivel = 100, motorLigado = false, jogoAtivo = true;
+        const chaoY = canvas.height - 40, fogueteLargura = 14, fogueteAltura = 55;
+
+        // Controles de Toque Móvel e Teclado
+        const ativarMotor = () => { if (jogoAtivo && combustivel > 0) motorLigado = true; };
+        const desativarMotor = () => { motorLigado = false; };
+
+        botao.addEventListener("touchstart", (e) => { e.preventDefault(); ativarMotor(); });
+        botao.addEventListener("touchend", desativarMotor);
+        window.addEventListener("keydown", (e) => { if(e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); ativarMotor(); } });
+        window.addEventListener("keyup", desativarMotor);
+
+        function atualizar() {
+            if (!jogoAtivo) return;
+
+            if (motorLigado && combustivel > 0) {
+                velocidade -= (empuxo - gravidade);
+                combustivel -= 0.35;
+                if (combustivel <= 0) { combustivel = 0; motorLigado = false; }
+            } else {
+                velocidade += gravidade;
+            }
+
+            y += velocidade;
+            let altReal = Math.max(0, Math.round(chaoY - (y + fogueteAltura)));
+            let velReal = Math.round(velocidade * 12);
+
+            altTxt.innerText = altReal;
+            velTxt.innerText = velReal;
+            combTxt.innerText = Math.round(combustivel);
+
+            if (velReal > 35 && altReal < 180) velTxt.className = "alerta"; else velTxt.className = "";
+
+            if (y + fogueteAltura >= chaoY) {
+                y = chaoY - fogueteAltura;
+                jogoAtivo = false; motorLigado = false;
+                if (velReal <= 15) {
+                    statusTxt.innerText = "🚀 POUSO PERFEITO! Mechazilla capturou o booster!";
+                    statusTxt.style.color = "#33ff33";
+                } else {
+                    statusTxt.innerText = "💥 EXPLOSÃO! O impacto destruiu a torre!";
+                    statusTxt.style.color = "#ff3333";
+                }
+            }
+        }
+
+        function desenhar() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#444";
+            ctx.fillRect(canvas.width / 2 - 40, chaoY - 100, 12, 100);
+            ctx.fillRect(canvas.width / 2 - 40, chaoY - 85, 35, 8);
+            ctx.fillRect(canvas.width / 2 + 20, chaoY - 85, 15, 8);
+            ctx.fillStyle = "#222";
+            ctx.fillRect(0, chaoY, canvas.width, 40);
+            ctx.fillStyle = "#ff5500";
+            ctx.fillRect(canvas.width / 2 - 25, chaoY, 50, 4);
+
+            let fX = canvas.width / 2 - (fogueteLargura / 2);
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(fX, y, fogueteLargura, fogueteAltura);
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(fX, y, fogueteLargura, 5);
+
+            if (motorLigado) {
+                ctx.fillStyle = "#ff4500";
+                ctx.beginPath(); ctx.moveTo(fX, y + fogueteAltura); ctx.lineTo(fX + fogueteLargura/2, y + fogueteAltura + 18 + Math.random()*8); ctx.lineTo(fX + fogueteLargura, y + fogueteAltura); ctx.fill();
+            }
+        }
+
+        function loop() { atualizar(); desenhar(); requestAnimationFrame(loop); }
+        loop();
+    </script>
+</body>
+</html>
